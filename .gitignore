@@ -34,3 +34,23 @@ Icon
 # Files that might appear on external disk
 .Spotlight-V100
 .Trashes
+
+SMiWTest/Debug/bin/history.xml
+SMiWTest/Debug/bin/SMiWTest.bin
+SMiWTest/Debug/bin/SMiWTest.elf
+SMiWTest/Debug/bin/SMiWTest.hex
+SMiWTest/Debug/bin/SMiWTest.map
+SMiWTest/Debug/obj/dependencies.xml
+SMiWTest/Debug/obj/history.xml
+SMiWTest/Debug/obj/immobiliser.o
+SMiWTest/Debug/obj/main.o
+SMiWTest/Debug/obj/mifare.o
+SMiWTest/Debug/obj/startup_stm32f4xx.o
+SMiWTest/Debug/obj/stm32f4xx_dma.o
+SMiWTest/Debug/obj/stm32f4xx_exti.o
+SMiWTest/Debug/obj/stm32f4xx_flash.o
+SMiWTest/Debug/obj/stm32f4xx_rcc.o
+SMiWTest/Debug/obj/stm32f4xx_gpio.o
+SMiWTest/Debug/obj/stm32f4xx_spi.o
+SMiWTest/Debug/obj/system_stm32f4xx.o
+SMiWTest/Debug/obj/syscalls.o
