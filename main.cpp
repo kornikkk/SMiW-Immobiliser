@@ -41,15 +41,22 @@ void init_SPI_RFIDReader() {
 	// enable clock for used IO pins
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);
 
-	/* Configure the chip select pin (PE7) and output to relay (PE0)*/
-	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_7 | GPIO_Pin_0;
+	/* Configure the chip select pin (PE7) and reset pin (PE3)*/
+	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_7 |GPIO_Pin_3;
 	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_OUT;
 	GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
 	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_UP;
 	GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-	GPIOE->BSRRL |= GPIO_Pin_7; // set PE7 high
+	GPIO_WriteBit(GPIOE, GPIO_Pin_7, Bit_RESET);
+
+	GPIO_WriteBit(GPIOE, GPIO_Pin_3, Bit_SET); //It's a kind of magic... DO NOT TOUCH!!!
+	/*
+	 * Pin3 on GPIOE for some magical reason makes RFID reader working all the time...
+	 * When Pin3 isn't in HIGH state reader sometimes stops reading cards and
+	 * keeps returning ERROR CODE.
+	 */
 
 	// enable peripheral clock
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
@@ -63,7 +70,7 @@ void init_SPI_RFIDReader() {
 	SPI_InitStruct.SPI_DataSize = SPI_DataSize_8b; // one packet of data is 8 bits wide
 	SPI_InitStruct.SPI_CPOL = SPI_CPOL_Low;        // clock is low when idle
 	SPI_InitStruct.SPI_CPHA = SPI_CPHA_1Edge;      // data sampled at first edge
-	SPI_InitStruct.SPI_NSS = SPI_NSS_Soft | SPI_NSSInternalSoft_Set; // set the NSS management to internal and pull internal NSS high
+	SPI_InitStruct.SPI_NSS = SPI_NSS_Soft; // set the NSS management to internal and pull internal NSS high
 	SPI_InitStruct.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4; // SPI frequency is APB2 frequency / 4
 	SPI_InitStruct.SPI_FirstBit = SPI_FirstBit_MSB;// data is transmitted MSB first
 	SPI_Init(SPI1, &SPI_InitStruct);
@@ -81,6 +88,38 @@ void init_RFID_LEDS() {
 	GPIO_Init(GPIOD, &gpioStructure);
 
 	GPIO_WriteBit(GPIOD, RFID_LED_READ | RFID_LED_OK | RFID_LED_ADD | RFID_LED_ERROR, Bit_RESET);
+}
+
+void init_UART() {
+	GPIO_InitTypeDef gpioStructure;
+	USART_InitTypeDef usartStructure;
+
+	// sort out clocks
+	RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_GPIOA, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+
+	/* Configure USART2 Tx (PA.02) as alternate function push-pull */
+	gpioStructure.GPIO_Pin = GPIO_Pin_2;
+	gpioStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	gpioStructure.GPIO_Mode = GPIO_Mode_AF;
+	gpioStructure.GPIO_OType = GPIO_OType_PP;
+	gpioStructure.GPIO_PuPd = GPIO_PuPd_UP;
+	GPIO_Init(GPIOA, &gpioStructure);
+
+	// Map USART2 to A.02
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_USART2);
+
+	// Initialize USART
+	usartStructure.USART_BaudRate = 9600;
+	usartStructure.USART_WordLength = USART_WordLength_8b;
+	usartStructure.USART_StopBits = USART_StopBits_1;
+	usartStructure.USART_Parity = USART_Parity_No;
+	usartStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+	usartStructure.USART_Mode = USART_Mode_Tx;
+	/* Configure USART */
+	USART_Init(USART2, &usartStructure);
+	/* Enable the USART */
+	USART_Cmd(USART2, ENABLE);
 }
 
 void init_add_button() {
@@ -122,12 +161,17 @@ void init() {
 	init_RFID_LEDS();
 	init_SPI_RFIDReader();
 	init_relay_output();
+	init_UART();
     immo = new Immobiliser(SPI1, GPIOE, GPIO_Pin_7);
+    uartCommunicator = new UARTCommunicator(USART2);
 }
 
 void immo_wait() {
-	//immo->addCard();
 	uint32_t i;
+
+	//let device know that we're waiting for a card
+	uartCommunicator->putString(uartCommunicator->IMMO_CARD_WAIT);
+
 	if (immo->getCardsNumber() > 0) {
 		GPIO_WriteBit(GPIOD, RFID_LED_READ, Bit_SET); //LED signal - scanning
 		while (immo->scanCard() != Immobiliser::CheckCorrect); //lock until card is correct
@@ -138,6 +182,9 @@ void immo_wait() {
 	if (immo->getCardsNumber() == 0 || GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) ) {
 		blink_LED(GPIOD, RFID_LED_OK, 3);
 		GPIO_WriteBit(GPIOD, RFID_LED_ADD, Bit_SET); //LED signal - adding
+
+		uartCommunicator->putString(uartCommunicator->IMMO_ADD_WAIT);
+		//TODO: check if necessary O.o
 		for (i=0; i<10; ++i)
 			time_waste(); //TODO: better delay
 
@@ -147,12 +194,18 @@ void immo_wait() {
 		GPIO_WriteBit(GPIOD, RFID_LED_OK, Bit_RESET); //LED signal OFF - waiting for button
 
 		uint8_t cardStatus = immo->addCard();
-		if (cardStatus == Immobiliser::AddSuccess)
+		if (cardStatus == Immobiliser::AddSuccess) {
+			uartCommunicator->putString(uartCommunicator->IMMO_ADD_OK);
 			blink_LED(GPIOD, RFID_LED_OK, 3);
-		else if (cardStatus == Immobiliser::AddFailed)
+		}
+		else if (cardStatus == Immobiliser::AddFailed) {
+			uartCommunicator->putString(uartCommunicator->IMMO_ADD_ERR);
 			blink_LED(GPIOD, RFID_LED_ERROR, 3);
-		else
+		}
+		else {
+			uartCommunicator->putString(uartCommunicator->IMMO_CARD_OK);
 			blink_LED(GPIOD, RFID_LED_READ, 3);
+		}
 
 		GPIO_WriteBit(GPIOD, RFID_LED_ADD, Bit_RESET); //LED signal OFF - adding end
 		GPIO_WriteBit(GPIOE, RELAY_OUT, Bit_SET);
@@ -160,6 +213,7 @@ void immo_wait() {
 	else {
 		blink_LED(GPIOD, RFID_LED_OK, 3);
 		GPIO_WriteBit(GPIOE, RELAY_OUT, Bit_SET);
+		uartCommunicator->putString(uartCommunicator->IMMO_CARD_OK);
 	}
 }
 

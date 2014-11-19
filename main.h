@@ -3,8 +3,11 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_gpio.h"
 #include "stm32f4xx_rcc.h"
+#include "stm32f4xx_usart.h"
+#include <stdio.h>
 
 #include "immobiliser.hpp"
+#include "uartcommunicator.hpp"
 
 //built in LEDs for RFID reader signals
 #define RFID_LED_READ GPIO_Pin_13
@@ -19,6 +22,7 @@
 #define RELAY_OUT GPIO_Pin_0
 
 Immobiliser *immo; //pointer to immobiliser object
+UARTCommunicator *uartCommunicator;
 
 //basic functionality functions
 void time_waste(); //simple delay (uC lock intended)

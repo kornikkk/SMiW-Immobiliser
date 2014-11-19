@@ -54,3 +54,5 @@ SMiWTest/Debug/obj/stm32f4xx_gpio.o
 SMiWTest/Debug/obj/stm32f4xx_spi.o
 SMiWTest/Debug/obj/system_stm32f4xx.o
 SMiWTest/Debug/obj/syscalls.o
+SMiWTest/Debug/obj/stm32f4xx_usart.o
+SMiWTest/Debug/obj/uartcommunicator.o

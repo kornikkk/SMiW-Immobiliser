@@ -7,11 +7,11 @@ Mifare::~Mifare() {
 }
 
 uint8_t Mifare::transfer(uint8_t val) {
-		spi->DR = val; // write data to be transmitted to SPI data register
-		while( !(spi->SR & SPI_I2S_FLAG_TXE) ); // wait until transmit is complete
-		while( !(spi->SR & SPI_I2S_FLAG_RXNE) ); // wait until receive is complete
-		while( spi->SR & SPI_I2S_FLAG_BSY ); // wait until SPI is not busy anymore
-		return spi->DR; // get received data from SPI data register
+	spi->DR = val; // write data to be transmitted to SPI data register
+	while( !(spi->SR & SPI_I2S_FLAG_TXE) ); // wait until transmit is complete
+	while( !(spi->SR & SPI_I2S_FLAG_RXNE) ); // wait until receive is complete
+	while( spi->SR & SPI_I2S_FLAG_BSY ); // wait until SPI is not busy anymore
+	return spi->DR; // get received data from SPI data register
 }
 
 
